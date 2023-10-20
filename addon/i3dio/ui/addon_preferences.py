@@ -47,12 +47,6 @@ class I3D_IO_AddonPreferences(AddonPreferences):
         default=""
     )
 
-    object_sorting_prefix: StringProperty(
-        name="Object Sorting Prefix",
-        description="To allow some form of control over the output ordering of the objects in the I3D file it is possible to have the exporter use anything preceeding this keyin the object name as the means for sorting the objects, while also removing this from the final object name. The key can be anything and even multiple characters to allow as much flexibility as possible. To disable the functionality just set the string to nothing",
-        default=":"
-    )
-
     def draw(self, context):
         layout = self.layout
         layout.prop(self, 'fs_data_path')
@@ -60,7 +54,6 @@ class I3D_IO_AddonPreferences(AddonPreferences):
         layout.label(text="The i3dconverter.exe is not supplied with this exporter.")
         layout.label(text="You need to download and extract it from the 'Blender Exporter Plugin' from Giants GDN.")
         layout.prop(self, 'i3d_converter_path')
-        layout.prop(self, 'object_sorting_prefix')
 
 
 def register():
