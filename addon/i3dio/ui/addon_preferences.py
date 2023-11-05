@@ -163,7 +163,8 @@ class I3D_IO_OT_download_i3d_converter(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = bpy.context.window_manager
-        return wm.invoke_props_dialog(self)
+        # Width increased to fit the warning about the download freezing the UI
+        return wm.invoke_props_dialog(self, width=350)
         
     def draw(self, context):
         layout = self.layout
@@ -171,6 +172,9 @@ class I3D_IO_OT_download_i3d_converter(bpy.types.Operator):
         row.prop(self, "email")
         row = layout.row()
         row.prop(self, "password")
+        row = layout.row()
+        row.alignment = "CENTER"
+        row.label(text="Blender UI will appear frozen during file download (~15MB) ", icon="ERROR")
 
 
 def register():
