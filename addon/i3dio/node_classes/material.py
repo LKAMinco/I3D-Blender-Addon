@@ -9,6 +9,7 @@ from ..ui import shader_picker
 
 from ..i3d import I3D
 
+enable_debug = False
 
 class Material(Node):
     ELEMENT_TAG = 'Material'
@@ -51,7 +52,8 @@ class Material(Node):
             self._specular_from_nodes(main_node)
             self._emissive_from_nodes(main_node)
         else:
-            self.logger.warning(f"Uses nodes but Principled BSDF node is not found!")
+            if enable_debug:
+                    self.logger.warning(f"Uses nodes but Principled BSDF node is not found!")
 
         gloss_node = self.blender_material.node_tree.nodes.get('Glossmap')
         if gloss_node is not None:
@@ -66,14 +68,17 @@ class Material(Node):
                     else:
                         raise AttributeError(f"Has an improperly setup Glossmap")
             except (AttributeError, IndexError, KeyError):
-                self.logger.exception(f"Has an improperly setup Glossmap")
+                if enable_debug:
+                        self.logger.exception(f"Has an improperly setup Glossmap")
             else:
-                self.logger.debug(f"Has Glossmap '{utility.as_fs_relative_path(gloss_image_path)}'")
+                if enable_debug:
+                        self.logger.debug(f"Has Glossmap '{utility.as_fs_relative_path(gloss_image_path)}'")
                 file_id = self.i3d.add_file_image(gloss_image_path)
                 self.xml_elements['Glossmap'] = xml_i3d.SubElement(self.element, 'Glossmap')
                 self._write_attribute('fileId', file_id, 'Glossmap')
         else:
-            self.logger.debug(f"Has no Glossmap")
+            if enable_debug:
+                    self.logger.debug(f"Has no Glossmap")
 
     def _specular_from_nodes(self, node):
         specular = [1.0 - node.inputs['Roughness'].default_value,
@@ -88,14 +93,17 @@ class Material(Node):
                 normal_image_path = normal_node_socket.links[0].from_node.inputs['Color'].links[0] \
                     .from_node.image.filepath
             except (AttributeError, IndexError, KeyError):
-                self.logger.exception(f"Has an improperly setup Normalmap")
+                if enable_debug:
+                    self.logger.exception(f"Has an improperly setup Normalmap")
             else:
-                self.logger.debug(f"Has Normalmap '{utility.as_fs_relative_path(normal_image_path)}'")
+                if enable_debug:
+                    self.logger.debug(f"Has Normalmap '{utility.as_fs_relative_path(normal_image_path)}'")
                 file_id = self.i3d.add_file_image(normal_image_path)
                 self.xml_elements['Normalmap'] = xml_i3d.SubElement(self.element, 'Normalmap')
                 self._write_attribute('fileId', file_id, 'Normalmap')
         else:
-            self.logger.debug(f"Has no Normalmap")
+            if enable_debug:
+                self.logger.debug(f"Has no Normalmap")
 
     def _diffuse_from_nodes(self, node):
         color_socket = node.inputs['Base Color']
@@ -109,10 +117,12 @@ class Material(Node):
                 else:
                     diffuse_image_path = color_connected_node.image.filepath
             except (AttributeError, IndexError, KeyError):
-                self.logger.exception(f"Has an improperly setup Texture")
+                if enable_debug:
+                    self.logger.exception(f"Has an improperly setup Texture")
             else:
                 if diffuse_image_path is not None:
-                    self.logger.debug(f"Has diffuse texture '{utility.as_fs_relative_path(diffuse_image_path)}'")
+                    if enable_debug:
+                        self.logger.debug(f"Has diffuse texture '{utility.as_fs_relative_path(diffuse_image_path)}'")
                     file_id = self.i3d.add_file_image(diffuse_image_path)
                     self.xml_elements['Texture'] = xml_i3d.SubElement(self.element, 'Texture')
                     self._write_attribute('fileId', file_id, 'Texture')
@@ -134,31 +144,37 @@ class Material(Node):
                 else:
                     emissive_path = emission_socket.links[0].from_node.image.filepath
             except (AttributeError, IndexError, KeyError):
-                self.logger.exception(f"Has an improperly setup Texture")
+                if enable_debug:
+                    self.logger.exception(f"Has an improperly setup Texture")
             else:
                 if emissive_path is not None:
-                    self.logger.info("Has Emissivemap")
+                    if enable_debug:
+                        self.logger.info("Has Emissivemap")
                     file_id = self.i3d.add_file_image(emissive_path)
                     self.xml_elements['Emissive'] = xml_i3d.SubElement(self.element, 'Emissivemap')
                     self._write_attribute('fileId', file_id, 'Emissive')
                     return
-            self.logger.debug("Has no Emissivemap")
+            if enable_debug:
+                self.logger.debug("Has no Emissivemap")
         r, g, b, a = emission_c
 
         if bpy.app.version >= (4, 0, 0):
             has_emission = node.inputs['Emission Strength'].default_value == 0.0
             if not has_emission:
-                self.logger.debug("Write emissiveColor")
+                if enable_debug:
+                    self.logger.debug("Write emissiveColor")
                 self._write_emission(emission_c)
         elif (0, 0, 0, 1) != (r, g, b, a):
-            self.logger.debug("Write emissiveColor")
+            if enable_debug:
+                self.logger.debug("Write emissiveColor")
             self._write_emission(emission_c)
 
     def _resolve_without_nodes(self):
         material = self.blender_material
         self._write_diffuse(material.diffuse_color)
         self._write_specular([1.0 - material.roughness, 1, material.metallic])
-        self.logger.debug(f"Does not use nodes")
+        if enable_debug:
+            self.logger.debug(f"Does not use nodes")
 
     def _write_diffuse(self, diffuse_color):
         self._write_attribute('diffuseColor', "{0:.6f} {1:.6f} {2:.6f} {3:.6f}".format(*diffuse_color))
@@ -204,7 +220,8 @@ class Material(Node):
                 xml_i3d.SubElement(self.element, 'CustomParameter', parameter_dict)
 
             for texture in shader_settings.shader_textures:
-                self.logger.debug(f"Texture: '{texture.source}', default: {texture.default_source}")
+                if enable_debug:
+                    self.logger.debug(f"Texture: '{texture.source}', default: {texture.default_source}")
                 if '' != texture.source != texture.default_source:
                     texture_dict = {'name': texture.name}
                     texture_id = self.i3d.add_file_image(texture.source)

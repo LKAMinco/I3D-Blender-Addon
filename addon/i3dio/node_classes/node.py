@@ -7,12 +7,19 @@ import mathutils
 import bpy
 
 from .. import (
-            debugging,
-            utility,
-            xml_i3d
+    debugging,
+    utility,
+    xml_i3d
 )
 
 from ..i3d import I3D
+
+enable_debug = False
+
+
+def print(*args):
+    msg = ' '.join([str(arg) for arg in args])
+    logging.log(logging.WARNING, msg)
 
 
 class Node(ABC):
@@ -63,11 +70,13 @@ class Node(ABC):
                                            {'object_name': self.name})
 
     def _create_xml_element(self):
-        self.logger.debug(f"Filling out basic attributes, {{name='{self.name}', nodeId='{self.id}'}}")
+        if enable_debug:
+            self.logger.debug(f"Filling out basic attributes, {{name='{self.name}', nodeId='{self.id}'}}")
         attributes = {type(self).NAME_FIELD_NAME: self.name, type(self).ID_FIELD_NAME: str(self.id)}
         try:
             self.element = xml_i3d.SubElement(self.parent.element, type(self).ELEMENT_TAG, attributes)
-            self.logger.debug(f"has parent element with name [{self.parent.name}]")
+            if enable_debug:
+                self.logger.debug(f"has parent element with name [{self.parent.name}]")
         except AttributeError:
             self.element = xml_i3d.Element(type(self).ELEMENT_TAG, attributes)
 
@@ -97,12 +106,12 @@ class SceneGraphNode(Node):
         self.xml_elements: Dict[str, Union[xml_i3d.XML_Element, None]] = {'Node': None}
 
         self._name = self.blender_object.name
-        if (prefix:= bpy.context.scene.i3dio.object_sorting_prefix) != "" and (prefix_index := self._name.find(prefix)) != -1 and prefix_index < (len(self._name) - 1):
+        if (prefix := bpy.context.scene.i3dio.object_sorting_prefix) != "" and (prefix_index := self._name.find(prefix)) != -1 and prefix_index < (len(self._name) - 1):
             self._name = self._name[prefix_index + 1:]
 
         super().__init__(id_, i3d, parent)
-
-        self.logger.debug(f"New Name: {self._name}")
+        if enable_debug:
+            self.logger.debug(f"New Name: {self._name}")
 
         try:
             self.parent.add_child(self)
@@ -110,8 +119,8 @@ class SceneGraphNode(Node):
             pass
 
         self.add_i3d_mapping_to_xml()
-
-        self.logger.debug(f"Initialized as a '{self.__class__.__name__}'")
+        if enable_debug:
+            self.logger.debug(f"Initialized as a '{self.__class__.__name__}'")
 
     @property
     def name(self):
@@ -140,12 +149,14 @@ class SceneGraphNode(Node):
         try:
             data = self.blender_object.data
         except AttributeError:
-            self.logger.debug(f'Is a "{type(self.blender_object).__name__}", which does not have "data"')
+            if enable_debug:
+                self.logger.debug(f'Is a "{type(self.blender_object).__name__}", which does not have "data"')
         else:
             try:
                 xml_i3d.write_i3d_properties(data, self.blender_object.data.i3d_attributes, self.xml_elements)
             except AttributeError:
-                self.logger.debug(f'Has no data specific attributes')
+                if enable_debug:
+                    self.logger.debug(f'Has no data specific attributes')
 
     def _write_user_attributes(self):
         try:
@@ -158,7 +169,8 @@ class SceneGraphNode(Node):
             return
         elif self.blender_object.i3d_reference_path == "" or not self.blender_object.i3d_reference_path.endswith('.i3d'):
             return
-        self.logger.debug(f"Adding reference file")
+        if enable_debug:
+            self.logger.debug(f"Adding reference file")
         file_id = self.i3d.add_file_reference(self.blender_object.i3d_reference_path)
         self._write_attribute('referenceId', file_id)
 
@@ -173,43 +185,50 @@ class SceneGraphNode(Node):
         if object_transform is None:
             # This essentially sets the entire transform to be default. Since GE loads defaults when no data is present.
             return
-
-        self.logger.debug(f"transforming to new transform-basis with {object_transform}")
+        if enable_debug:
+            self.logger.debug(f"transforming to new transform-basis with {object_transform}")
         matrix = object_transform
         if self.parent is not None:
             if type(self.parent) in [CameraNode, LightNode]:
                 matrix = self.i3d.conversion_matrix.inverted() @ matrix
-                self.logger.debug(f"Is transformed to accommodate flipped z-axis in GE of parent Light/Camera")
+                if enable_debug:
+                    self.logger.debug(f"Is transformed to accommodate flipped z-axis in GE of parent Light/Camera")
 
         translation = matrix.to_translation()
-        self.logger.debug(f"translation is {translation}")
+        if enable_debug:
+            self.logger.debug(f"translation is {translation}")
         if not utility.vector_compare(translation, mathutils.Vector((0, 0, 0))):
             translation = "{0:.6g} {1:.6g} {2:.6g}".format(
                 *[x * bpy.context.scene.unit_settings.scale_length for x in translation])
 
             self._write_attribute('translation', translation)
-            self.logger.debug(f"has translation: [{translation}]")
+            if enable_debug:
+                self.logger.debug(f"has translation: [{translation}]")
         else:
-            self.logger.debug(f"translation is default")
+            if enable_debug:
+                self.logger.debug(f"translation is default")
 
         # Rotation, no unit scaling since it will always be degrees.
         rotation = [math.degrees(axis) for axis in matrix.to_euler('XYZ')]
         if not utility.vector_compare(mathutils.Vector(rotation), mathutils.Vector((0, 0, 0))):
             rotation = "{0:.6g} {1:.6g} {2:.6g}".format(*rotation)
             self._write_attribute('rotation', rotation)
-            self.logger.debug(f"has rotation(degrees): [{rotation}]")
+            if enable_debug:
+                self.logger.debug(f"has rotation(degrees): [{rotation}]")
 
         # Scale
         if matrix.is_negative:
-            self.logger.error(f"has one or more negative scaling components, "
-                              f"which is not supported in Giants Engine. Scale reset to (1, 1, 1)")
+            if enable_debug:
+                self.logger.error(f"has one or more negative scaling components, "
+                                  f"which is not supported in Giants Engine. Scale reset to (1, 1, 1)")
         else:
             scale = matrix.to_scale()
             if not utility.vector_compare(scale, mathutils.Vector((1, 1, 1))):
                 scale = "{0:.6g} {1:.6g} {2:.6g}".format(*scale)
 
                 self._write_attribute('scale', scale)
-                self.logger.debug(f"has scale: [{scale}]")
+                if enable_debug:
+                    self.logger.debug(f"has scale: [{scale}]")
 
     def populate_xml_element(self):
         self._write_properties()
@@ -243,7 +262,8 @@ class TransformGroupNode(SceneGraphNode):
                                 self.blender_object.matrix_local @ \
                                 self.i3d.conversion_matrix.inverted()
         except AttributeError:
-            self.logger.info(f"is a Collection and it will be exported as a transformgroup with default transform")
+            if enable_debug:
+                self.logger.info(f"is a Collection and it will be exported as a transformgroup with default transform")
             conversion_matrix = None
         return conversion_matrix
 
@@ -279,9 +299,11 @@ class CameraNode(SceneGraphNode):
         self._write_attribute('fov', camera.lens)
         self._write_attribute('nearClip', camera.clip_start)
         self._write_attribute('farClip', camera.clip_end)
-        self.logger.info(f"FOV: '{camera.lens}', Near Clip: '{camera.clip_start}', Far Clip: '{camera.clip_end}'")
+        if enable_debug:
+            self.logger.info(f"FOV: '{camera.lens}', Near Clip: '{camera.clip_start}', Far Clip: '{camera.clip_end}'")
         if camera.type == 'ORTHO':
             self._write_attribute('orthographic', True)
             self._write_attribute('orthographicHeight', camera.ortho_scale)
-            self.logger.info(f"Orthographic camera with height '{camera.ortho_scale}'")
+            if enable_debug:
+                self.logger.info(f"Orthographic camera with height '{camera.ortho_scale}'")
         super().populate_xml_element()

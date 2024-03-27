@@ -24,14 +24,14 @@ from . import ui, xml_i3d
 
 import bpy
 
-__version__ = "0.0.0"  # This version number is used internally, since the bl_info one can't handle dev versions...
+__version__ = "4.4.1"
 
 bl_info = {
     "name": "Unofficial GIANTS I3D Exporter Tools",
     "author": "StjerneIdioten, original by GIANTS Software, Jason Oppermann",
     "description": "Exports blender projects into GIANTS I3D format for use in Giants Engine based games such as "
                    "Farming Simulator",
-    "version": (0, 0, 0),  # Always (0, 0, 0) since versioning is controlled by the CI
+    "version": (4, 4, 1),  # Always (0, 0, 0) since versioning is controlled by the CI
     "blender": (2, 93, 0),
     "location": "File > Import-Export",
     "warning": "First Unofficial Alpha Version",

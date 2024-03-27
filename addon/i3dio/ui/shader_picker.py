@@ -11,6 +11,8 @@ from bpy.props import (
 
 from .. import xml_i3d
 
+import logging
+
 classes = []
 
 # A module value to represent what the field shows when a shader is not selected
@@ -18,6 +20,10 @@ shader_unselected_default_text = ''
 shader_no_variation = 'None'
 shader_parameter_max_decimals = 3  # 0-6 per blender properties documentation
 
+
+def print(*args):
+    msg = ' '.join([str(arg) for arg in args])
+    logging.log(logging.WARNING, msg)
 
 def register(cls):
     classes.append(cls)
@@ -70,7 +76,6 @@ class I3DLoadCustomShader(bpy.types.Operator):
     def execute(self, context):
 
         attributes = context.object.active_material.i3d_attributes
-
         tree = xml_i3d.parse(bpy.path.abspath(attributes.source))
         if tree is None:
             print(f"Shader file is not correct xml")

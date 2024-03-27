@@ -10,10 +10,12 @@ import bpy
 import os
 import re
 
+
 logger = logging.getLogger(__name__)
 
 BlenderObject = Union[bpy.types.Object, bpy.types.Collection]
 
+enable_debug = False
 
 def vector_compare(a: mathutils.Vector, b: mathutils.Vector, epsilon: float = 0.0000001) -> bool:
     """Compares two vectors elementwise, to see if they are equal
@@ -61,17 +63,21 @@ def as_fs_relative_path(filepath: str):
         This should be rewritten to use `pathlib <https://docs.python.org/3.7/library/pathlib.html>`_ instead
         of just strings
     """
-    logger.debug(f"Original filepath: {filepath}")
+    if enable_debug:
+        logger.debug(f"Original filepath: {filepath}")
     filepath_clean = os.path.normpath(bpy.path.abspath(filepath))  # normpath cleans up stuff such as '../'
-    logger.debug(f"Cleaned filepath: {filepath_clean}")
+    if enable_debug:
+        logger.debug(f"Cleaned filepath: {filepath_clean}")
     fs_data_path = os.path.normpath(
                         bpy.path.abspath(
                             bpy.context.preferences.addons[__package__].preferences.fs_data_path))
-    logger.debug(f"FS data path: {fs_data_path}")
+    if enable_debug:
+        logger.debug(f"FS data path: {fs_data_path}")
     try:
         if fs_data_path != '':
             path_to_return = '$data' + filepath_clean[filepath_clean.index(fs_data_path) + len(fs_data_path):]
-            logger.debug(f"Fs relative path: {path_to_return}")
+            if enable_debug:
+                logger.debug(f"Fs relative path: {path_to_return}")
             return path_to_return
         else:
             raise ValueError

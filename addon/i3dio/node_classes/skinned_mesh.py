@@ -15,6 +15,15 @@ from ..i3d import I3D
 from .. import xml_i3d
 
 import math
+import logging
+
+enable_debug = False
+
+
+def print(*args):
+    msg = ' '.join([str(arg) for arg in args])
+    logging.log(logging.WARNING, msg)
+
 
 class SkinnedMeshBoneNode(TransformGroupNode):
     def __init__(self, id_: int, bone_object: bpy.types.Bone,
@@ -83,9 +92,11 @@ class SkinnedMeshRootNode(TransformGroupNode):
                 self.element.remove(bone.element)
                 self.children.remove(bone)
                 if parent is not None:
+                    bone.parent = parent
                     parent.add_child(bone)
                     parent.element.append(bone.element)
                 else:
+                    bone.parent = None
                     self.i3d.scene_root_nodes.append(bone)
                     self.i3d.xml_elements['Scene'].append(bone.element)
 
@@ -111,7 +122,8 @@ class SkinnedMeshShapeNode(ShapeNode):
     def populate_xml_element(self):
         super().populate_xml_element()
         vertex_group_binding = self.i3d.shapes[self.shape_id].vertex_group_ids
-        self.logger.debug(f"Skinned groups: {vertex_group_binding}")
+        if enable_debug:
+            self.logger.debug(f"Skinned groups: {vertex_group_binding}")
 
         skin_bind_id = ''
         for vertex_group_id in sorted(vertex_group_binding, key=vertex_group_binding.get):

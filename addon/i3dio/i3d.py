@@ -6,7 +6,11 @@ from . import xml_i3d
 
 logger = logging.getLogger(__name__)
 
+def print(*args):
+    msg = ' '.join([str(arg) for arg in args])
+    logging.log(logging.WARNING, msg)
 
+enable_debug = False
 class I3D:
     """A special node which is the root node for the entire I3D file. It essentially represents the i3d file"""
     def __init__(self, name: str, i3d_file_path: str, conversion_matrix: mathutils.Matrix,
@@ -74,13 +78,15 @@ class I3D:
 
     def add_merge_group_node(self, merge_group_object: bpy.types.Object, parent: SceneGraphNode = None, is_root: bool = False) \
             -> [SceneGraphNode, None]:
-        self.logger.debug("Adding merge group node")
+        if enable_debug:
+            self.logger.debug("Adding merge group node")
         merge_group = self.merge_groups[merge_group_object.i3d_merge_group_index]
 
         node_to_return: [MergeGroupRoot or MergeGroupChild] = None
 
         if is_root:
             if merge_group.root_node is not None:
+                if enable_debug:
                     self.logger.warning(f"Merge group '{merge_group.name}' already has a root node! "
                                         f"The object '{merge_group_object.name}' will be ignored for export")
             else:
@@ -124,7 +130,6 @@ class I3D:
                     self.xml_elements['Scene'].append(self.skinned_meshes[armature_object.name].element)
             else:
                 self.skinned_meshes[armature_object.name].update_bone_parent(parent)
-
             self.skinned_meshes[armature_object.name].is_located = is_located
 
         return self.skinned_meshes[armature_object.name]
@@ -194,7 +199,8 @@ class I3D:
     def add_material(self, blender_material: bpy.types.Material) -> int:
         name = blender_material.name
         if name not in self.materials:
-            self.logger.debug(f"New Material")
+            if enable_debug:
+                self.logger.debug(f"New Material")
             material_id = self._next_available_id('material')
             material = Material(material_id, self, blender_material)
             self.materials.update(dict.fromkeys([material_id, name], material))
@@ -208,7 +214,8 @@ class I3D:
         # If the material doesn't pre-exist in the blend file, then add it.
         if blender_material is None:
             material = bpy.data.materials.new(default_material_name)
-            self.logger.info(f"Default material does not exist. Creating 'i3d_default_material'")
+            if enable_debug:
+                self.logger.info(f"Default material does not exist. Creating 'i3d_default_material'")
             self.add_material(material)
         # If it already exists in the blend file (Due to a previous export) add it to the i3d material list
         elif default_material_name not in self.materials:
@@ -218,7 +225,8 @@ class I3D:
 
     def add_file(self, file_type: Type[File], path_to_file: str) -> int:
         if path_to_file not in self.files:
-            self.logger.debug(f"New File")
+            if enable_debug:
+                self.logger.debug(f"New File")
             file_id = self._next_available_id('file')
             file = file_type(file_id, self, path_to_file)
             # Store with reference to blender path instead of potential relative path, to avoid unnecessary creation of
@@ -275,13 +283,13 @@ class I3D:
             for idx,line in enumerate(xml_file):
                 if i3d_mapping_idx is None:
                     if '<i3dMappings>' in line:
-                        i3d_mapping_idx = idx 
+                        i3d_mapping_idx = idx
                         vehicle_xml.append(line)
                         xml_indentation = line[0:line.find('<')]
-                    
+
                 if i3d_mapping_idx is None or i3d_mapping_end_found:
                     vehicle_xml.append(line)
-                
+
                 if not (i3d_mapping_idx is None or i3d_mapping_end_found):
                     i3d_mapping_end_found = True if '</i3dMappings>' in line else False
 
@@ -291,16 +299,21 @@ class I3D:
                         xml_indentation = ' '*4
                         vehicle_xml.insert(i, f"\n{xml_indentation}<i3dMappings>\n")
                         i3d_mapping_idx = i
-                        self.logger.info(f"Vehicle file does not have an <i3dMappings> tag, inserting one above </vehicle> with default indentation")
+                        if enable_debug:
+                            self.logger.info(f"Vehicle file does not have an <i3dMappings> tag, inserting one above </vehicle> with default indentation")
                         break
 
             if i3d_mapping_idx is None:
-                self.logger.warning(f"Cannot export i3d mapping, provided file has no <i3dMappings> or root level <vehicle> tag!")
+                if enable_debug:
+                    self.logger.warning(f"Cannot export i3d mapping, provided file has no <i3dMappings> or root level <vehicle> tag!")
                 return
-            
+
             def build_index_string(node_to_index):
                 if node_to_index.parent is None:
-                    index = f"{self.scene_root_nodes.index(node_to_index):d}>"
+                    try:
+                        index = f"{self.scene_root_nodes.index(node_to_index):d}>"
+                    except ValueError:
+                        print(f'rip {node_to_index}')
                 else:
                     index = build_index_string(node_to_index.parent)
                     if index[-1] != '>':
@@ -312,9 +325,9 @@ class I3D:
                 # If the mapping is an empty string, use the node name
                 if not (mapping_name := getattr(mapping_node.blender_object.i3d_mapping, 'mapping_name')):
                     mapping_name = mapping_node.name
-                
+
                 vehicle_xml[i3d_mapping_idx] += f'{xml_indentation*2}<i3dMapping id="{mapping_name}" node="{build_index_string(mapping_node)}" />\n'
-                
+
             vehicle_xml[i3d_mapping_idx] += f'{xml_indentation}</i3dMappings>\n'
 
             xml_file.seek(0)
