@@ -6,13 +6,18 @@ from . import xml_i3d
 
 logger = logging.getLogger(__name__)
 
+
 def print(*args):
     msg = ' '.join([str(arg) for arg in args])
     logging.log(logging.WARNING, msg)
 
+
 enable_debug = False
+
+
 class I3D:
     """A special node which is the root node for the entire I3D file. It essentially represents the i3d file"""
+
     def __init__(self, name: str, i3d_file_path: str, conversion_matrix: mathutils.Matrix,
                  depsgraph: bpy.types.Depsgraph):
         self.logger = debugging.ObjectNameAdapter(logging.getLogger(f"{__name__}.{type(self).__name__}"),
@@ -117,12 +122,14 @@ class I3D:
             else:
                 skinned_mesh_root_node = SkinnedMeshRootNode(self._next_available_id('node'), armature_object, self,
                                                              None)
-
             skinned_mesh_root_node.is_located = is_located
             self.skinned_meshes[armature_object.name] = skinned_mesh_root_node
         elif is_located:
             if not self.settings['collapse_armatures']:
                 if parent is not None:
+                    # Armature has been created from modifier where it could have parent, but at the time of creation it was not known
+                    if self.skinned_meshes[armature_object.name].parent is None:
+                        self.skinned_meshes[armature_object.name].parent = parent
                     parent.add_child(self.skinned_meshes[armature_object.name])
                     parent.element.append(self.skinned_meshes[armature_object.name].element)
                 else:
@@ -131,7 +138,6 @@ class I3D:
             else:
                 self.skinned_meshes[armature_object.name].update_bone_parent(parent)
             self.skinned_meshes[armature_object.name].is_located = is_located
-
         return self.skinned_meshes[armature_object.name]
 
     def add_skinned_mesh_node(self, mesh_object: bpy.types.Object, parent: SceneGraphNode = None) -> SceneGraphNode:
@@ -181,7 +187,6 @@ class I3D:
             return curve_id
         return self.shapes[name].id
 
-
     def get_shape_by_id(self, shape_id: int):
         return self.shapes[shape_id]
 
@@ -189,7 +194,7 @@ class I3D:
         node_attribute_element = self.xml_elements['UserAttributes'].find(f"UserAttribute[@nodeId='{node_id:d}']")
         if node_attribute_element is None:
             node_attribute_element = xml_i3d.SubElement(self.xml_elements['UserAttributes'], 'UserAttribute',
-                                                   attrib={'nodeId': str(node_id)})
+                                                        attrib={'nodeId': str(node_id)})
 
         for attribute in user_attributes:
             attrib = {'name': attribute.name, 'type': attribute.type.replace('data_', '')}
@@ -280,7 +285,7 @@ class I3D:
             vehicle_xml = []
             i3d_mapping_idx = None
             i3d_mapping_end_found = False
-            for idx,line in enumerate(xml_file):
+            for idx, line in enumerate(xml_file):
                 if i3d_mapping_idx is None:
                     if '<i3dMappings>' in line:
                         i3d_mapping_idx = idx
@@ -296,7 +301,7 @@ class I3D:
             if i3d_mapping_idx is None:
                 for i in reversed(range(len(vehicle_xml))):
                     if vehicle_xml[i].startswith('</vehicle>'):
-                        xml_indentation = ' '*4
+                        xml_indentation = ' ' * 4
                         vehicle_xml.insert(i, f"\n{xml_indentation}<i3dMappings>\n")
                         i3d_mapping_idx = i
                         if enable_debug:
@@ -309,11 +314,9 @@ class I3D:
                 return
 
             def build_index_string(node_to_index):
+                # print(f'Node to index: {node_to_index} {node_to_index.parent}')
                 if node_to_index.parent is None:
-                    try:
-                        index = f"{self.scene_root_nodes.index(node_to_index):d}>"
-                    except ValueError:
-                        print(f'rip {node_to_index}')
+                    index = f"{self.scene_root_nodes.index(node_to_index):d}>"
                 else:
                     index = build_index_string(node_to_index.parent)
                     if index[-1] != '>':
@@ -326,13 +329,14 @@ class I3D:
                 if not (mapping_name := getattr(mapping_node.blender_object.i3d_mapping, 'mapping_name')):
                     mapping_name = mapping_node.name
 
-                vehicle_xml[i3d_mapping_idx] += f'{xml_indentation*2}<i3dMapping id="{mapping_name}" node="{build_index_string(mapping_node)}" />\n'
+                vehicle_xml[i3d_mapping_idx] += f'{xml_indentation * 2}<i3dMapping id="{mapping_name}" node="{build_index_string(mapping_node)}" />\n'
 
             vehicle_xml[i3d_mapping_idx] += f'{xml_indentation}</i3dMappings>\n'
 
             xml_file.seek(0)
             xml_file.truncate()
             xml_file.writelines(vehicle_xml)
+
 
 # To avoid a circular import, since all nodes rely on the I3D class, but i3d itself contains all the different nodes.
 from i3dio.node_classes.node import *

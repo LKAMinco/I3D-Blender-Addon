@@ -223,7 +223,6 @@ class IndexedTriangleSet(Node):
 
                 # Add vertex color
                 vertex_color = None
-                print(mesh.vertex_colors)
                 if len(mesh.vertex_colors):
                     # Get the color from the active layer or first layer, since only one vertex color layer is supported in GE
                     color_layer = mesh.vertex_colors.active if mesh.vertex_colors.active is not None else mesh.vertex_colors[0]
