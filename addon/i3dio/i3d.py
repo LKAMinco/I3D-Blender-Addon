@@ -117,6 +117,9 @@ class I3D:
         elif is_located:
             if not self.settings['collapse_armatures']:
                 if parent is not None:
+                    # Armature has been created from modifier where it could have parent, but at the time of creation it was not known
+                    if self.skinned_meshes[armature_object.name].parent is None:
+                        self.skinned_meshes[armature_object.name].parent = parent
                     parent.add_child(self.skinned_meshes[armature_object.name])
                     parent.element.append(self.skinned_meshes[armature_object.name].element)
                 else:
