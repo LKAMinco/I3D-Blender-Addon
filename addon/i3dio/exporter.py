@@ -21,6 +21,9 @@ from .node_classes.node import SceneGraphNode
 from .node_classes.skinned_mesh import SkinnedMeshRootNode
 from .node_classes.merge_group import MergeGroup
 
+enable_debugging = False
+
+
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading: {__name__}")
 
@@ -42,10 +45,11 @@ def export_blend_to_i3d(filepath: str, axis_forward, axis_up) -> dict:
 
     # Output info about the addon
     debugging.addon_console_handler.setLevel(logging.INFO)
-    logger.info(f"Blender version is: {bpy.app.version_string}")
-    logger.info(f"I3D Exporter version is: {sys.modules['i3dio'].__version__}")
-    logger.info(f"Exported using '{xml_i3d.xml_current_library}'")
-    logger.info(f"Exporting to {filepath}")
+    if enable_debugging:
+        logger.info(f"Blender version is: {bpy.app.version_string}")
+        logger.info(f"I3D Exporter version is: {sys.modules['i3dio'].__version__}")
+        logger.info(f"Exported using '{xml_i3d.xml_current_library}'")
+        logger.info(f"Exporting to {filepath}")
 
     if bpy.context.scene.i3dio.verbose_output:
         debugging.addon_console_handler.setLevel(logging.DEBUG)
@@ -77,34 +81,43 @@ def export_blend_to_i3d(filepath: str, axis_forward, axis_up) -> dict:
         i3d.export_to_i3d_file()
 
         if bpy.context.scene.i3dio.binarize_i3d == True:
-            logger.info(f'Starting binarization of "{filepath}"')
+            if enable_debugging:
+                logger.info(f'Starting binarization of "{filepath}"')
             try:
                 i3d_binarize_path = PurePath(None if (path := bpy.context.preferences.addons['i3dio'].preferences.i3d_converter_path) == "" else path)
             except TypeError:
-                logger.error(f"Empty Converter Binary Path")
+                if enable_debugging:
+                    logger.error(f"Empty Converter Binary Path")
             else:
                 try:
                     # This is under the assumption that the data folder is always in the gamefolder! (Which is usually the case, but imagine having the data folder on a dev machine just for Blender)
                     game_path = PurePath(None if (path := bpy.context.preferences.addons['i3dio'].preferences.fs_data_path) == "" else path).parent
                 except TypeError:
-                    logger.error(f"Empty Game Path")
+                    if enable_debugging:
+                        logger.error(f"Empty Game Path")
                 else:
                     try:
                         conversion_result = subprocess.run(args=[str(i3d_binarize_path), '-in', str(filepath), '-out', str(filepath), '-gamePath', f"{game_path}/"], timeout=BINARIZER_TIMEOUT_IN_SECONDS, check=True, text=True, stdout = subprocess.PIPE, stderr=subprocess.STDOUT)
                     except FileNotFoundError as e:
-                        logger.error(f'Invalid path to i3dConverter.exe: "{i3d_binarize_path}"')
+                        if enable_debugging:
+                            logger.error(f'Invalid path to i3dConverter.exe: "{i3d_binarize_path}"')
                     except subprocess.TimeoutExpired as e:
                         if e.output is not None and "Press any key to continue . . ." in e.output.decode():
-                            logger.error(f'i3dConverter.exe could not run with provided arguments: {e.cmd}')
+                            if enable_debugging:
+                                logger.error(f'i3dConverter.exe could not run with provided arguments: {e.cmd}')
                         else:
-                            logger.error(f"i3dConverter.exe took longer than {BINARIZER_TIMEOUT_IN_SECONDS} seconds to run and was cancelled!")
+                            if enable_debugging:
+                                logger.error(f"i3dConverter.exe took longer than {BINARIZER_TIMEOUT_IN_SECONDS} seconds to run and was cancelled!")
                     except subprocess.CalledProcessError as e:
-                        logger.error(f"i3dConverter.exe failed to run with error code: {e.returncode}")
+                        if enable_debugging:
+                            logger.error(f"i3dConverter.exe failed to run with error code: {e.returncode}")
                     else:
                         if error_messages := [f"\t{error_line}" for error_line in conversion_result.stdout.split('\n', -1) if error_line.startswith("Error:")]:
-                            logger.error("i3dConverter.exe produced errors:\n" + '\n'.join(error_messages))
+                            if enable_debugging:
+                                logger.error("i3dConverter.exe produced errors:\n" + '\n'.join(error_messages))
                         else:
-                            logger.info(f'Finished binarization of "{filepath}"')
+                            if enable_debugging:
+                                logger.info(f'Finished binarization of "{filepath}"')
 
     # Global try/catch exception handler. So that any unspecified exception will still end up in the log file
     except Exception:
@@ -123,18 +136,21 @@ def export_blend_to_i3d(filepath: str, axis_forward, axis_up) -> dict:
     except AttributeError:
         pass
 
-    debugging.addon_logger.removeHandler(log_file_handler)
+    if enable_debugging:
+        debugging.addon_logger.removeHandler(log_file_handler)
     debugging.addon_console_handler.setLevel(debugging.addon_console_handler_default_level)
     return export_data
 
 
 def _export_active_scene_master_collection(i3d: I3D):
-    logger.info("'Master Collection' export is selected")
+    if enable_debugging:
+        logger.info("'Master Collection' export is selected")
     _export_collection_content(i3d, bpy.context.scene.collection)
 
 
 def _export_active_collection(i3d: I3D):
-    logger.info("'Active collection' export is selected")
+    if enable_debugging:
+        logger.info("'Active collection' export is selected")
     _export_collection_content(i3d, bpy.context.view_layer.active_layer_collection.collection)
 
 
@@ -147,20 +163,24 @@ def _export_collection_content(i3d: I3D, collection):
 
 
 def _export_active_object(i3d: I3D):
-    logger.info("'Active Object' export is selected")
+    if enable_debugging:
+        logger.info("'Active Object' export is selected")
     if bpy.context.active_object is not None:
         _export(i3d, [bpy.context.active_object])
     else:
-        logger.warning("No active object, aborting export")
+        if enable_debugging:
+            logger.warning("No active object, aborting export")
 
 
 # TODO: Maybe this should export a sort of skeleton structure if the parents of an object isn't selected?
 def _export_selected_objects(i3d: I3D):
-    logger.info("'Selected Objects' export is selected'")
+    if enable_debugging:
+        logger.info("'Selected Objects' export is selected'")
     if bpy.context.selected_objects:
         _export(i3d, bpy.context.selected_objects)
     else:
-        logger.warning("No selected objects, aborting export")
+        if enable_debugging:
+            logger.warning("No selected objects, aborting export")
 
 
 def _export(i3d: I3D, objects: List[BlenderObject], sort_alphabetical: bool = True):
@@ -183,14 +203,17 @@ def _add_object_to_i3d(i3d: I3D, obj: BlenderObject, parent: SceneGraphNode = No
 
     # Collections are checked first since these are always exported in some form
     if isinstance(obj, bpy.types.Collection):
-        logger.debug(f"[{obj.name}] is a 'Collection'")
+        if enable_debugging:
+            logger.debug(f"[{obj.name}] is a 'Collection'")
         node = i3d.add_transformgroup_node(obj, _parent)
         _process_collection_objects(i3d, obj, node)
         return  # Early return because collections are special
     else:
-        logger.debug(f"[{obj.name}] is of type {obj.type!r}")
+        if enable_debugging:
+            logger.debug(f"[{obj.name}] is of type {obj.type!r}")
         if obj.type not in i3d.settings['object_types_to_export']:
-            logger.debug(f"[{obj.name}] has type {obj.type!r} which is not a type selected for exporting")
+            if enable_debugging:
+                logger.debug(f"[{obj.name}] has type {obj.type!r} which is not a type selected for exporting")
             return
         elif obj.type == 'MESH':
             node = None
@@ -219,7 +242,8 @@ def _add_object_to_i3d(i3d: I3D, obj: BlenderObject, parent: SceneGraphNode = No
         elif obj.type == 'EMPTY':
             node = i3d.add_transformgroup_node(obj, _parent)
             if obj.instance_collection is not None:
-                logger.debug(f"[{obj.name}] is a collection instance and will be instanced into the 'Empty' object")
+                if enable_debugging:
+                    logger.debug(f"[{obj.name}] is a collection instance and will be instanced into the 'Empty' object")
                 # This is a collection instance so the children needs to be fetched from the referenced collection and
                 # be 'instanced' as children of the 'Empty' object directly.
                 _process_collection_objects(i3d, obj.instance_collection, node)
@@ -236,10 +260,12 @@ def _add_object_to_i3d(i3d: I3D, obj: BlenderObject, parent: SceneGraphNode = No
         # Process children of objects (other objects) and children of collections (other collections)
         # WARNING: Might be slow due to searching through the entire object list in the blend file:
         # https://docs.blender.org/api/current/bpy.types.Object.html#bpy.types.Object.children
-        logger.debug(f"[{obj.name}] processing objects children")
+        if enable_debugging:
+            logger.debug(f"[{obj.name}] processing objects children")
         for child in sort_blender_objects_by_outliner_ordering(obj.children):
             _add_object_to_i3d(i3d, child, node)
-        logger.debug(f"[{obj.name}] no more children to process in object")
+        if enable_debugging:
+            logger.debug(f"[{obj.name}] no more children to process in object")
 
 
 def _process_collection_objects(i3d: I3D, collection: bpy.types.Collection, parent: SceneGraphNode):
@@ -248,17 +274,21 @@ def _process_collection_objects(i3d: I3D, collection: bpy.types.Collection, pare
     different"""
 
     # Iterate child collections first, since they appear at the top in the blender outliner
-    logger.debug(f"[{collection.name}] processing collections children")
+    if enable_debugging:
+        logger.debug(f"[{collection.name}] processing collections children")
     for child in collection.children.values():
         _add_object_to_i3d(i3d, child, parent)
-    logger.debug(f"[{collection.name}] no more children to process in collection")
+    if enable_debugging:
+        logger.debug(f"[{collection.name}] no more children to process in collection")
 
     # Then iterate over the objects contained in the collection
-    logger.debug(f"[{collection.name}] processing collection objects")
+    if enable_debugging:
+        logger.debug(f"[{collection.name}] processing collection objects")
     for child in sort_blender_objects_by_outliner_ordering(collection.objects):
         # If a collection consists of an object, which has it's own children objects. These children will also be a
         # a part of the collections objects. Which means that they would be added twice without this check. One for the
         # object itself and one for the collection.
         if child.parent is None:
             _add_object_to_i3d(i3d, child, parent)
-    logger.debug(f"[{collection.name}] no more objects to process in collection")
+    if enable_debugging:
+        logger.debug(f"[{collection.name}] no more objects to process in collection")

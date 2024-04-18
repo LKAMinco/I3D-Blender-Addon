@@ -2,17 +2,26 @@
 This module contains various small utility functions, that don't really belong anywhere else
 """
 from __future__ import annotations
-from typing import Union, List
+
 import logging
 import math
-import mathutils
-import bpy
 import os
 import re
+from typing import Union, List
+
+import bpy
+import mathutils
+
+enable_debugging = False
 
 logger = logging.getLogger(__name__)
 
 BlenderObject = Union[bpy.types.Object, bpy.types.Collection]
+
+
+def print(*args):
+    msg = " ".join([str(arg) for arg in args])
+    logging.log(logging.WARNING, msg)
 
 
 def vector_compare(a: mathutils.Vector, b: mathutils.Vector, epsilon: float = 0.0000001) -> bool:
@@ -61,17 +70,21 @@ def as_fs_relative_path(filepath: str):
         This should be rewritten to use `pathlib <https://docs.python.org/3.7/library/pathlib.html>`_ instead
         of just strings
     """
-    logger.debug(f"Original filepath: {filepath}")
+    if enable_debugging:
+        logger.debug(f"Original filepath: {filepath}")
     filepath_clean = os.path.normpath(bpy.path.abspath(filepath))  # normpath cleans up stuff such as '../'
-    logger.debug(f"Cleaned filepath: {filepath_clean}")
+    if enable_debugging:
+        logger.debug(f"Cleaned filepath: {filepath_clean}")
     fs_data_path = os.path.normpath(
-                        bpy.path.abspath(
-                            bpy.context.preferences.addons[__package__].preferences.fs_data_path))
-    logger.debug(f"FS data path: {fs_data_path}")
+        bpy.path.abspath(
+            bpy.context.preferences.addons[__package__].preferences.fs_data_path))
+    if enable_debugging:
+        logger.debug(f"FS data path: {fs_data_path}")
     try:
         if fs_data_path != '':
             path_to_return = '$data' + filepath_clean[filepath_clean.index(fs_data_path) + len(fs_data_path):]
-            logger.debug(f"Fs relative path: {path_to_return}")
+            if enable_debugging:
+                logger.debug(f"Fs relative path: {path_to_return}")
             return path_to_return
         else:
             raise ValueError
@@ -82,10 +95,13 @@ def as_fs_relative_path(filepath: str):
 def sort_blender_objects_by_name(objects: List[BlenderObject]) -> List[BlenderObject]:
     return sorted(objects, key=lambda x: x.name)
 
+
 """
 Blenders outliner does not follow a stricly lexographical ordering, but rather what is called a "natural" ordering.
 This function implements the same ordering as per https://github.com/blender/blender/blob/b0e7a6db56caf6669b6fade1622710d70b96483e/source/blender/blenlib/intern/string.c#L727,
 with the use of a regex as detailed in this answer on stackoverflow https://stackoverflow.com/a/16090640
 """
+
+
 def sort_blender_objects_by_outliner_ordering(objects: List[BlenderObject]) -> List[BlenderObject]:
     return sorted(objects, key=lambda s: [int(t) if t.isdigit() else t.lower() for t in re.split('(\d+)', s.name)])

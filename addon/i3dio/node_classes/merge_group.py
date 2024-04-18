@@ -12,6 +12,8 @@ from .. import (
 
 from ..i3d import I3D
 
+enable_debugging = False
+
 
 class MergeGroupChild(TransformGroupNode):
     pass
@@ -27,11 +29,12 @@ class MergeGroupRoot(ShapeNode):
 
     # Override default shape behaviour to use the merge group mesh name instead of the blender objects name
     def add_shape(self):
-        self.shape_id = self.i3d.add_shape(EvaluatedMesh(self.i3d, self.blender_object), self.merge_group_name, True)
+        self.shape_id = self.i3d.add_shape(EvaluatedMesh(self.i3d, self.blender_object), self.merge_group_name, True, tangent=self.tangent)
         self.xml_elements['IndexedTriangleSet'] = self.i3d.shapes[self.shape_id].element
 
     def add_mergegroup_child(self, child: MergeGroupChild):
-        self.logger.debug("Adding Child")
+        if enable_debugging:
+            self.logger.debug("Adding Child")
         self.skin_bind_ids += f"{child.id:d} "
         self._write_attribute('skinBindNodeIds', self.skin_bind_ids[:-1])
         self.i3d.shapes[self.shape_id].append_from_evaluated_mesh(
@@ -47,19 +50,23 @@ class MergeGroup:
         self.name = name
         self.root_node: [MergeGroupRoot, None] = None
         self.child_nodes: List[MergeGroupChild] = list()  # List of child nodes for the merge group
-        self.logger = debugging.ObjectNameAdapter(logging.getLogger(f"{__name__}.{type(self).__name__}"),
+        if enable_debugging:
+            self.logger = debugging.ObjectNameAdapter(logging.getLogger(f"{__name__}.{type(self).__name__}"),
                                                   {'object_name': self.name})
-        self.logger.debug("Initialized merge group")
+        if enable_debugging:
+            self.logger.debug("Initialized merge group")
 
     # Should only be run once, when the root node is found.
     def set_root(self, root_node: MergeGroupRoot):
         self.root_node = root_node
         if self.child_nodes:
-            self.logger.debug(f"{len(self.child_nodes)} were added before the root node was found")
+            if enable_debugging:
+                self.logger.debug(f"{len(self.child_nodes)} were added before the root node was found")
             for child in self.child_nodes:
                 self.root_node.add_mergegroup_child(child)
         else:
-            self.logger.debug("No pre-added children before root was found")
+            if enable_debugging:
+                self.logger.debug("No pre-added children before root was found")
         return self.root_node
 
     def add_child(self, child_node: MergeGroupChild):

@@ -1,15 +1,16 @@
-import math
-import mathutils
 import collections
 import logging
-from typing import (OrderedDict, Optional, List, Dict, ChainMap, Union)
-from itertools import zip_longest
+import math
+from typing import (OrderedDict, Optional, List, ChainMap)
+
 import bpy
+import mathutils
 
 from .node import (Node, SceneGraphNode)
-
-from .. import (debugging, utility, xml_i3d)
+from .. import (debugging, xml_i3d)
 from ..i3d import I3D
+
+enable_debugging = False
 
 
 class SubSet:
@@ -98,17 +99,20 @@ class EvaluatedMesh:
         self.i3d = i3d
         self.object = None
         self.mesh = None
-        self.logger = debugging.ObjectNameAdapter(logging.getLogger(f"{__name__}.{type(self).__name__}"),
+        if enable_debugging:
+            self.logger = debugging.ObjectNameAdapter(logging.getLogger(f"{__name__}.{type(self).__name__}"),
                                                   {'object_name': self.name})
         self.generate_evaluated_mesh(mesh_object, reference_frame)
 
     def generate_evaluated_mesh(self, mesh_object: bpy.types.Object, reference_frame: mathutils.Matrix = None):
         if self.i3d.get_setting('apply_modifiers'):
             self.object = mesh_object.evaluated_get(self.i3d.depsgraph)
-            self.logger.debug(f"is exported with modifiers applied")
+            if enable_debugging:
+                self.logger.debug(f"is exported with modifiers applied")
         else:
             self.object = mesh_object
-            self.logger.debug(f"is exported without modifiers applied")
+            if enable_debugging:
+                self.logger.debug(f"is exported without modifiers applied")
 
         self.mesh = self.object.to_mesh(preserve_all_data_layers=False, depsgraph=self.i3d.depsgraph)
 
@@ -119,14 +123,16 @@ class EvaluatedMesh:
 
         conversion_matrix = self.i3d.conversion_matrix
         if self.i3d.get_setting('apply_unit_scale'):
-            self.logger.debug(f"applying unit scaling")
+            if enable_debugging:
+                self.logger.debug(f"applying unit scaling")
             conversion_matrix = \
                 mathutils.Matrix.Scale(bpy.context.scene.unit_settings.scale_length, 4) @ conversion_matrix
 
         self.mesh.transform(conversion_matrix)
         if conversion_matrix.is_negative:
             self.mesh.flip_normals()
-            self.logger.debug(f"conversion matrix is negative, flipping normals")
+            if enable_debugging:
+                self.logger.debug(f"conversion matrix is negative, flipping normals")
 
         # Calculates triangles from mesh polygons
         self.mesh.calc_loop_triangles()
@@ -138,7 +144,7 @@ class EvaluatedMesh:
     # everything. Further investigation is needed.
     def __del__(self):
         pass
-        #self.object.to_mesh_clear()
+        # self.object.to_mesh_clear()
 
 
 class IndexedTriangleSet(Node):
@@ -147,7 +153,7 @@ class IndexedTriangleSet(Node):
     ID_FIELD_NAME = 'shapeId'
 
     def __init__(self, id_: int, i3d: I3D, evaluated_mesh: EvaluatedMesh, shape_name: Optional[str] = None,
-                 is_merge_group: bool = False, bone_mapping: ChainMap = None, tangent = False):
+                 is_merge_group: bool = False, bone_mapping: ChainMap = None, tangent=False):
         self.id: int = id_
         self.i3d: I3D = i3d
         self.evaluated_mesh: EvaluatedMesh = evaluated_mesh
@@ -187,13 +193,15 @@ class IndexedTriangleSet(Node):
         next_vertex = 0
         next_index = 0
         for idx, subset in enumerate(self.subsets):
-            self.logger.debug(f"Subset with index {idx}")
+            if enable_debugging:
+                self.logger.debug(f"Subset with index {idx}")
             subset.first_vertex = next_vertex
             subset.first_index = next_index
             next_vertex, next_index = self.process_subset(mesh, subset)
 
     def process_subset(self, mesh, subset: SubSet, triangle_offset: int = 0) -> tuple[int, int]:
-        self.logger.debug(f"Processing subset: {subset}")
+        if enable_debugging:
+            self.logger.debug(f"Processing subset: {subset}")
         for triangle in subset.triangles[triangle_offset:]:
 
             # Add a new empty container for the vertex indexes of the triangle
@@ -201,7 +209,6 @@ class IndexedTriangleSet(Node):
 
             for loop_index in triangle.loops:
                 blender_vertex = mesh.vertices[mesh.loops[loop_index].vertex_index]
-
 
                 # Add vertex color
                 vertex_color = None
@@ -234,17 +241,19 @@ class IndexedTriangleSet(Node):
                                     blend_ids.append(self.vertex_group_ids[vertex_group.group])
                                     blend_weights.append(vertex_group.weight)
                             else:
-                                self.logger.warning(f"Vertex has weights from more than 4 bones! Rest of bones will be"
+                                if enable_debugging:
+                                    self.logger.warning(f"Vertex has weights from more than 4 bones! Rest of bones will be"
                                                     f"ignored for export!")
                                 break
 
                     if len(blend_ids) == 0:
-                        self.logger.warning("Has a vertex with 0.0 weight to all bones. "
+                        if enable_debugging:
+                            self.logger.warning("Has a vertex with 0.0 weight to all bones. "
                                             "This will confuse GE and results in the mesh showing up as just a "
                                             "wireframe. Please correct by assigning some weight to all vertices")
 
                     if len(blend_ids) < 4:
-                        padding = [0]*(4-len(blend_ids))
+                        padding = [0] * (4 - len(blend_ids))
                         blend_ids += padding
                         blend_weights += padding
 
@@ -265,17 +274,20 @@ class IndexedTriangleSet(Node):
 
                 self.triangles[-1].append(vertex_index)
             subset.number_of_indices += 3
-        self.logger.debug(f"Subset {triangle.material_index} with '{len(subset.triangles)}' triangles and {subset}")
+        if enable_debugging:
+            self.logger.debug(f"Subset {triangle.material_index} with '{len(subset.triangles)}' triangles and {subset}")
         return subset.first_vertex + subset.number_of_vertices, subset.first_index + subset.number_of_indices
 
     def populate_from_evaluated_mesh(self):
         mesh = self.evaluated_mesh.mesh
 
         if len(mesh.materials) == 0:
-            self.logger.info(f"has no material assigned, assigning default material")
+            if enable_debugging:
+                self.logger.info(f"has no material assigned, assigning default material")
             mesh.materials.append(self.i3d.get_default_material().blender_material)
-            self.logger.info(f"assigned default material i3d_default_material")
-        
+            if enable_debugging:
+                self.logger.info(f"assigned default material i3d_default_material")
+
         for _ in mesh.materials:
             self.subsets.append(SubSet())
 
@@ -284,8 +296,9 @@ class IndexedTriangleSet(Node):
             triangle_material = mesh.materials[triangle.material_index]
 
             if triangle_material is None:
-                if not has_warned_for_empty_slot: 
-                    self.logger.warning(f"triangle(s) found with empty material slot, assigning default material")
+                if not has_warned_for_empty_slot:
+                    if enable_debugging:
+                        self.logger.warning(f"triangle(s) found with empty material slot, assigning default material")
                     has_warned_for_empty_slot = True
                 triangle_material = self.i3d.get_default_material().blender_material
 
@@ -296,22 +309,26 @@ class IndexedTriangleSet(Node):
 
     def append_from_evaluated_mesh(self, mesh_to_append):
         if not self.is_merge_group:
-            self.logger.warning("Can't add a mesh to a IndexedTriangleSet that is not a merge group")
+            if enable_debugging:
+                self.logger.warning("Can't add a mesh to a IndexedTriangleSet that is not a merge group")
             return
 
         # Material checks for subset consistency
         mesh = mesh_to_append.mesh
         if len(mesh.materials) == 0:
-            self.logger.warning(f"Mesh '{mesh.name}' to be added has no materials, "
+            if enable_debugging:
+                self.logger.warning(f"Mesh '{mesh.name}' to be added has no materials, "
                                 f"mergegroups need to share the same subset!")
             return
         elif len(mesh.materials) > 1:
-            self.logger.warning(f"Mesh '{mesh.name}' has more than one material, "
+            if enable_debugging:
+                self.logger.warning(f"Mesh '{mesh.name}' has more than one material, "
                                 f"merge groups need to share the same subset!")
             return
         else:
             if mesh.materials[0].name != self.evaluated_mesh.mesh.materials[0].name:
-                self.logger.warning(f"Mesh '{mesh.name}' has a different material from merge group root, "
+                if enable_debugging:
+                    self.logger.warning(f"Mesh '{mesh.name}' has a different material from merge group root, "
                                     f"which is not allowed!")
                 return
 
@@ -377,10 +394,12 @@ class IndexedTriangleSet(Node):
 
     def populate_xml_element(self):
         if len(self.evaluated_mesh.mesh.vertices) == 0:
-            self.logger.warning(f"has no vertices! Export of this mesh is aborted.")
+            if enable_debugging:
+                self.logger.warning(f"has no vertices! Export of this mesh is aborted.")
             return
         self.populate_from_evaluated_mesh()
-        self.logger.debug(f"Has '{len(self.subsets)}' subsets, "
+        if enable_debugging:
+            self.logger.debug(f"Has '{len(self.subsets)}' subsets, "
                           f"'{len(self.triangles)}' triangles and "
                           f"'{len(self.vertices)}' vertices")
 
@@ -446,7 +465,8 @@ class EvaluatedNurbsCurve:
         self.i3d = i3d
         self.object = None
         self.curve_data = None
-        self.logger = debugging.ObjectNameAdapter(logging.getLogger(f"{__name__}.{type(self).__name__}"),
+        if enable_debugging:
+            self.logger = debugging.ObjectNameAdapter(logging.getLogger(f"{__name__}.{type(self).__name__}"),
                                                   {'object_name': self.name})
         self.control_vertices = []
         self.generate_evaluated_curve(shape_object, reference_frame)
@@ -463,7 +483,8 @@ class EvaluatedNurbsCurve:
 
         conversion_matrix = self.i3d.conversion_matrix
         if self.i3d.get_setting('apply_unit_scale'):
-            self.logger.debug(f"applying unit scaling")
+            if enable_debugging:
+                self.logger.debug(f"applying unit scaling")
             conversion_matrix = \
                 mathutils.Matrix.Scale(bpy.context.scene.unit_settings.scale_length, 4) @ conversion_matrix
 
@@ -511,7 +532,8 @@ class NurbsCurve(Node):
             points = spline.points
             self.spline_type = "linear"
         else:
-            self.logger.warning(f"{spline.type} is not supported! Export of this curve is aborted.")
+            if enable_debugging:
+                self.logger.warning(f"{spline.type} is not supported! Export of this curve is aborted.")
             return
 
         for loop_index, point in enumerate(points):
@@ -532,7 +554,8 @@ class NurbsCurve(Node):
 
     def populate_xml_element(self):
         if len(self.evaluated_curve_data.curve_data.splines) == 0:
-            self.logger.warning(f"has no splines! Export of this curve is aborted.")
+            if enable_debugging:
+                self.logger.warning(f"has no splines! Export of this curve is aborted.")
             return
 
         self.populate_from_evaluated_nurbscurve()
@@ -540,7 +563,8 @@ class NurbsCurve(Node):
             self._write_attribute('type', self.spline_type, 'node')
         if self.spline_form:
             self._write_attribute('form', self.spline_form, 'node')
-        self.logger.debug(f"Has '{len(self.control_vertex)}' control vertices")
+        if enable_debugging:
+            self.logger.debug(f"Has '{len(self.control_vertex)}' control vertices")
         self.write_control_vertices()
 
 
@@ -571,6 +595,7 @@ class ShapeNode(SceneGraphNode):
             self._write_attribute('materialIds', ' '.join(map(str, m_ids)) or str(self.i3d.add_material(self.i3d.get_default_material())))
             self.tangent = any((self.i3d.materials[m_id].is_normalmapped() for m_id in m_ids))
         self.add_shape()
-        self.logger.debug(f"has shape ID '{self.shape_id}'")
+        if enable_debugging:
+            self.logger.debug(f"has shape ID '{self.shape_id}'")
         self._write_attribute('shapeId', self.shape_id)
         super().populate_xml_element()

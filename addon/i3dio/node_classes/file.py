@@ -13,6 +13,8 @@ from .. import (
 
 from ..i3d import I3D
 
+enable_debugging = False
+
 
 class File(Node):
     ELEMENT_TAG = 'File'
@@ -65,21 +67,26 @@ class File(Node):
         else:
             self.resolved_path = filepath_relative_to_fs
 
-        self.logger.info(f"Resolved filepath: {self.resolved_path}")
+        if enable_debugging:
+            self.logger.info(f"Resolved filepath: {self.resolved_path}")
 
     def _copy_file(self):
         resolved_directory = ""
         write_directory = self.i3d.paths['i3d_folder']
-        self.logger.info(f"is not an FS builtin and will be copied")
+        if enable_debugging:
+            self.logger.info(f"is not an FS builtin and will be copied")
         file_structure = bpy.context.scene.i3dio.file_structure
         if file_structure == 'FLAT':
-            self.logger.debug(f"will be copied using the 'FLAT' hierarchy structure")
+            if enable_debugging:
+                self.logger.debug(f"will be copied using the 'FLAT' hierarchy structure")
         elif file_structure == 'MODHUB':
-            self.logger.debug(f"will be copied using the 'MODHUB' hierarchy structure")
+            if enable_debugging:
+                self.logger.debug(f"will be copied using the 'MODHUB' hierarchy structure")
             resolved_directory = type(self).MODHUB_FOLDER
             write_directory += '\\' + resolved_directory
         elif file_structure == 'BLENDER':
-            self.logger.debug(f"'will be copied using the 'BLENDER' hierarchy structure")
+            if enable_debugging:
+                self.logger.debug(f"'will be copied using the 'BLENDER' hierarchy structure")
             # TODO: Rewrite this to make it more than three levels above the blend file but allow deeper nesting
             #  ,since current code just counts number of slashes
             blender_relative_distance_limit = 3  # Limits the distance a file can be from the blend file
@@ -89,7 +96,8 @@ class File(Node):
                 resolved_directory = self.blender_path[2:self.blender_path.rfind('\\')]
                 write_directory += '\\' + resolved_directory
             else:
-                self.logger.debug(f"'exists more than {blender_relative_distance_limit} folders away "
+                if enable_debugging:
+                    self.logger.debug(f"'exists more than {blender_relative_distance_limit} folders away "
                                   f"from .blend file. Defaulting to absolute path and no copying.")
                 self.resolved_path = bpy.path.abspath(self.blender_path)
                 return
@@ -107,9 +115,11 @@ class File(Node):
                 except shutil.SameFileError:
                     pass  # Ignore if source and destination is the same file
                 else:
-                    self.logger.info(f"copied to '{write_path_full}'")
+                    if enable_debugging:
+                        self.logger.info(f"copied to '{write_path_full}'")
             else:
-                self.logger.debug(f"File already in correct path relative to i3d file and overwrite is turned off")
+                if enable_debugging:
+                    self.logger.debug(f"File already in correct path relative to i3d file and overwrite is turned off")
 
 
 class Image(File):

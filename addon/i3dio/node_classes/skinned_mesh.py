@@ -16,6 +16,8 @@ from .. import xml_i3d
 
 import math
 
+enable_debugging = False
+
 class SkinnedMeshBoneNode(TransformGroupNode):
     def __init__(self, id_: int, bone_object: bpy.types.Bone,
                  i3d: I3D, parent: SceneGraphNode):
@@ -107,13 +109,14 @@ class SkinnedMeshShapeNode(ShapeNode):
         # Use a ChainMap to easily combine multiple bone mappings and get around any problems with multiple bones
         # named the same as a ChainMap just gets the bone from the first armature added
         self.shape_id = self.i3d.add_shape(EvaluatedMesh(self.i3d, self.blender_object), self.skinned_mesh_name,
-                                           bone_mapping=self.bone_mapping)
+                                           bone_mapping=self.bone_mapping, tangent=self.tangent)
         self.xml_elements['IndexedTriangleSet'] = self.i3d.shapes[self.shape_id].element
 
     def populate_xml_element(self):
         super().populate_xml_element()
         vertex_group_binding = self.i3d.shapes[self.shape_id].vertex_group_ids
-        self.logger.debug(f"Skinned groups: {vertex_group_binding}")
+        if enable_debugging:
+            self.logger.debug(f"Skinned groups: {vertex_group_binding}")
 
         skin_bind_id = ''
         for vertex_group_id in sorted(vertex_group_binding, key=vertex_group_binding.get):

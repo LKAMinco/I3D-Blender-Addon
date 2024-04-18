@@ -1,17 +1,23 @@
 """This module contains shared functionality between the different modules of the i3dio addon"""
 from __future__ import annotations  # Enables python 4.0 annotation typehints fx. class self-referencing
-from typing import (Union, Dict, List, Type, OrderedDict, Optional)
+
 import logging
+from typing import (Union, Dict, List, Type, Optional)
+
 from . import xml_i3d
 
 logger = logging.getLogger(__name__)
 
+enable_debugging = False
+
 
 class I3D:
     """A special node which is the root node for the entire I3D file. It essentially represents the i3d file"""
+
     def __init__(self, name: str, i3d_file_path: str, conversion_matrix: mathutils.Matrix,
                  depsgraph: bpy.types.Depsgraph):
-        self.logger = debugging.ObjectNameAdapter(logging.getLogger(f"{__name__}.{type(self).__name__}"),
+        if enable_debugging:
+            self.logger = debugging.ObjectNameAdapter(logging.getLogger(f"{__name__}.{type(self).__name__}"),
                                                   {'object_name': name})
         self._ids = {
             'node': 1,
@@ -74,15 +80,17 @@ class I3D:
 
     def add_merge_group_node(self, merge_group_object: bpy.types.Object, parent: SceneGraphNode = None, is_root: bool = False) \
             -> [SceneGraphNode, None]:
-        self.logger.debug("Adding merge group node")
+        if enable_debugging:
+            self.logger.debug("Adding merge group node")
         merge_group = self.merge_groups[merge_group_object.i3d_merge_group_index]
 
         node_to_return: [MergeGroupRoot or MergeGroupChild] = None
 
         if is_root:
             if merge_group.root_node is not None:
+                if enable_debugging:
                     self.logger.warning(f"Merge group '{merge_group.name}' already has a root node! "
-                                        f"The object '{merge_group_object.name}' will be ignored for export")
+                                    f"The object '{merge_group_object.name}' will be ignored for export")
             else:
                 node_to_return = self._add_node(MergeGroupRoot, merge_group_object, parent)
                 merge_group.set_root(node_to_return)
@@ -148,7 +156,7 @@ class I3D:
         return self._add_node(CameraNode, camera_object, parent)
 
     def add_shape(self, evaluated_mesh: EvaluatedMesh, shape_name: Optional[str] = None, is_merge_group=None,
-                  bone_mapping: ChainMap = None, tangent = False) -> int:
+                  bone_mapping: ChainMap = None, tangent=False) -> int:
         if shape_name is None:
             name = evaluated_mesh.name
         else:
@@ -179,7 +187,6 @@ class I3D:
             return curve_id
         return self.shapes[name].id
 
-
     def get_shape_by_id(self, shape_id: int):
         return self.shapes[shape_id]
 
@@ -187,7 +194,7 @@ class I3D:
         node_attribute_element = self.xml_elements['UserAttributes'].find(f"UserAttribute[@nodeId='{node_id:d}']")
         if node_attribute_element is None:
             node_attribute_element = xml_i3d.SubElement(self.xml_elements['UserAttributes'], 'UserAttribute',
-                                                   attrib={'nodeId': str(node_id)})
+                                                        attrib={'nodeId': str(node_id)})
 
         for attribute in user_attributes:
             attrib = {'name': attribute.name, 'type': attribute.type.replace('data_', '')}
@@ -197,7 +204,8 @@ class I3D:
     def add_material(self, blender_material: bpy.types.Material) -> int:
         name = blender_material.name
         if name not in self.materials:
-            self.logger.debug(f"New Material")
+            if enable_debugging:
+                self.logger.debug(f"New Material")
             material_id = self._next_available_id('material')
             material = Material(material_id, self, blender_material)
             self.materials.update(dict.fromkeys([material_id, name], material))
@@ -211,7 +219,8 @@ class I3D:
         # If the material doesn't pre-exist in the blend file, then add it.
         if blender_material is None:
             material = bpy.data.materials.new(default_material_name)
-            self.logger.info(f"Default material does not exist. Creating 'i3d_default_material'")
+            if enable_debugging:
+                self.logger.info(f"Default material does not exist. Creating 'i3d_default_material'")
             self.add_material(material)
         # If it already exists in the blend file (Due to a previous export) add it to the i3d material list
         elif default_material_name not in self.materials:
@@ -221,7 +230,8 @@ class I3D:
 
     def add_file(self, file_type: Type[File], path_to_file: str) -> int:
         if path_to_file not in self.files:
-            self.logger.debug(f"New File")
+            if enable_debugging:
+                self.logger.debug(f"New File")
             file_id = self._next_available_id('file')
             file = file_type(file_id, self, path_to_file)
             # Store with reference to blender path instead of potential relative path, to avoid unnecessary creation of
@@ -275,32 +285,34 @@ class I3D:
             vehicle_xml = []
             i3d_mapping_idx = None
             i3d_mapping_end_found = False
-            for idx,line in enumerate(xml_file):
+            for idx, line in enumerate(xml_file):
                 if i3d_mapping_idx is None:
                     if '<i3dMappings>' in line:
-                        i3d_mapping_idx = idx 
+                        i3d_mapping_idx = idx
                         vehicle_xml.append(line)
                         xml_indentation = line[0:line.find('<')]
-                    
+
                 if i3d_mapping_idx is None or i3d_mapping_end_found:
                     vehicle_xml.append(line)
-                
+
                 if not (i3d_mapping_idx is None or i3d_mapping_end_found):
                     i3d_mapping_end_found = True if '</i3dMappings>' in line else False
 
             if i3d_mapping_idx is None:
                 for i in reversed(range(len(vehicle_xml))):
                     if vehicle_xml[i].startswith('</vehicle>'):
-                        xml_indentation = ' '*4
+                        xml_indentation = ' ' * 4
                         vehicle_xml.insert(i, f"\n{xml_indentation}<i3dMappings>\n")
                         i3d_mapping_idx = i
-                        self.logger.info(f"Vehicle file does not have an <i3dMappings> tag, inserting one above </vehicle> with default indentation")
+                        if enable_debugging:
+                            self.logger.info(f"Vehicle file does not have an <i3dMappings> tag, inserting one above </vehicle> with default indentation")
                         break
 
             if i3d_mapping_idx is None:
-                self.logger.warning(f"Cannot export i3d mapping, provided file has no <i3dMappings> or root level <vehicle> tag!")
+                if enable_debugging:
+                    self.logger.warning(f"Cannot export i3d mapping, provided file has no <i3dMappings> or root level <vehicle> tag!")
                 return
-            
+
             def build_index_string(node_to_index):
                 if node_to_index.parent is None:
                     index = f"{self.scene_root_nodes.index(node_to_index):d}>"
@@ -315,14 +327,15 @@ class I3D:
                 # If the mapping is an empty string, use the node name
                 if not (mapping_name := getattr(mapping_node.blender_object.i3d_mapping, 'mapping_name')):
                     mapping_name = mapping_node.name
-                
-                vehicle_xml[i3d_mapping_idx] += f'{xml_indentation*2}<i3dMapping id="{mapping_name}" node="{build_index_string(mapping_node)}" />\n'
-                
+
+                vehicle_xml[i3d_mapping_idx] += f'{xml_indentation * 2}<i3dMapping id="{mapping_name}" node="{build_index_string(mapping_node)}" />\n'
+
             vehicle_xml[i3d_mapping_idx] += f'{xml_indentation}</i3dMappings>\n'
 
             xml_file.seek(0)
             xml_file.truncate()
             xml_file.writelines(vehicle_xml)
+
 
 # To avoid a circular import, since all nodes rely on the I3D class, but i3d itself contains all the different nodes.
 from i3dio.node_classes.node import *

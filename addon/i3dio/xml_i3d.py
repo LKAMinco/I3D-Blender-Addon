@@ -7,6 +7,9 @@ import logging
 import bpy
 import mathutils
 
+enable_debugging = False
+
+
 # Load in the xml modules
 xml_libraries = {'element_tree'}
 xml_current_library = 'element_tree'
@@ -24,7 +27,8 @@ except ImportError as e:
 
 from . import utility
 
-logger = logging.getLogger(__name__)
+if enable_debugging:
+    logger = logging.getLogger(__name__)
 
 file_ending = '.i3d'
 
@@ -166,12 +170,14 @@ def write_attribute(element: XML_Element, attribute: str, value) -> None:
     elif isinstance(value, (list, tuple, bpy.types.bpy_prop_array, mathutils.Color, mathutils.Vector)):
         write_vector(element, attribute, tuple(value))
     else:
-        logger.warning(f"No xml attribute writing function for attribute of type '{type(value)}'")
+        if enable_debugging:
+            logger.warning(f"No xml attribute writing function for attribute of type '{type(value)}'")
 
 
 # TODO: Clean up this very generic, but spaghetti ish implementation of i3d attributes
 def write_i3d_properties(obj, property_group, elements: Dict[str, Union[XML_Element, None]]) -> None:
-    logger.info(f"Writing non-default properties from propertygroup: '{type(property_group).__name__}'")
+    if enable_debugging:
+        logger.info(f"Writing non-default properties from propertygroup: '{type(property_group).__name__}'")
     # Since blender properties are basically abusing the annotation system, we can also abuse this to create
     # a generic property export function by accessing the annotation dictionary
     properties_written = 0
@@ -255,13 +261,15 @@ def write_i3d_properties(obj, property_group, elements: Dict[str, Union[XML_Elem
                 try:
                     value_decimal = int(value, 16)
                 except ValueError:
-                    logger.error(f"Supplied value '{value}' for '{prop_name}' is not a hex value!")
+                    if enable_debugging:
+                        logger.error(f"Supplied value '{value}' for '{prop_name}' is not a hex value!")
                     continue
                 else:
                     if 0 <= value_decimal <= 2**32-1:  # Check that it is actually a 32-bit unsigned int
                         value_to_write = value_decimal
                     else:
-                        logger.warning(f"Supplied value '{value}' for '{prop_name}' is out of bounds."
+                        if enable_debugging:
+                            logger.warning(f"Supplied value '{value}' for '{prop_name}' is out of bounds."
                                        f" It should be within range [0, ffffffff] (32-bit unsigned)")
                         continue
             elif field_type == 'OVERRIDE':
@@ -271,12 +279,14 @@ def write_i3d_properties(obj, property_group, elements: Dict[str, Union[XML_Elem
                 if math.isclose(value_to_write, default, abs_tol=0.0001):
                     continue
 
-        logger.debug(f"Property '{prop_name}' with value '{value}'. Default is '{default}'")
+        if enable_debugging:
+            logger.debug(f"Property '{prop_name}' with value '{value}'. Default is '{default}'")
 
         write_attribute(elements[i3d_placement], i3d_name, value_to_write)
         properties_written += 1
 
-    logger.info(f"Wrote '{properties_written}' properties")
+    if enable_debugging:
+        logger.info(f"Wrote '{properties_written}' properties")
 
 
 def add_indentations(element: XML_Element, level: int = 0) -> None:
