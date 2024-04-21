@@ -1,22 +1,17 @@
 import bpy
-from bpy.types import (
-    Panel
-)
-
 from bpy.props import (
     StringProperty,
     BoolProperty,
     EnumProperty,
     PointerProperty,
-    FloatProperty,
     IntProperty,
-    CollectionProperty,    
-    FloatVectorProperty,
+)
+from bpy.types import (
+    Panel
 )
 
 classes = []
 
-from ..xml_i3d import i3d_max
 
 def register(cls):
     classes.append(cls)
@@ -28,7 +23,7 @@ class I3DNodeShapeAttributes(bpy.types.PropertyGroup):
     i3d_map = {
         'casts_shadows': {'name': 'castsShadows', 'default': False},
         'receive_shadows': {'name': 'receiveShadows', 'default': False},
-        'non_renderable': {'name': 'nonRenderable', 'default': False},        
+        'non_renderable': {'name': 'nonRenderable', 'default': False},
         'is_occluder': {'name': 'occluder', 'default': False},
         'distance_blending': {'name': 'distanceBlending', 'default': True},
         'cpu_mesh': {'name': 'meshUsage', 'default': '0', 'placement': 'IndexedTriangleSet'},
@@ -103,7 +98,13 @@ class I3DNodeShapeAttributes(bpy.types.PropertyGroup):
         name="Bounding Volume Object",
         description="The object used to calculate bvCenter and bvRadius. If the bounding volume object shares origin with the original object, then Giants Engine will always ignore the exported values and recalculate them itself",
         type=bpy.types.Object,
-		)
+    )
+
+    use_vertex_color: BoolProperty(
+        name="Use Vertex Color",
+        default=False,
+        description="If enabled, vertex color will be exported"
+    )
 
 
 @register
@@ -133,6 +134,7 @@ class I3D_IO_PT_shape_attributes(Panel):
         layout.prop(obj.i3d_attributes, "nav_mesh_mask")
         layout.prop(obj.i3d_attributes, "decal_layer")
         layout.prop(obj.i3d_attributes, 'fill_volume')
+        layout.prop(obj.i3d_attributes, "use_vertex_color")
 
 
 @register
@@ -153,7 +155,7 @@ class I3D_IO_PT_shape_bounding_box(Panel):
         obj = bpy.context.active_object.data
 
         row = layout.row()
-        row.prop(obj.i3d_attributes, 'bounding_volume_object')     
+        row.prop(obj.i3d_attributes, 'bounding_volume_object')
 
 
 def register():

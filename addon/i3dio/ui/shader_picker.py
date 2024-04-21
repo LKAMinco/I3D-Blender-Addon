@@ -1,6 +1,6 @@
 import bpy
-from bpy.types import (Panel)
 from bpy.props import (
+    BoolProperty,
     StringProperty,
     PointerProperty,
     EnumProperty,
@@ -8,6 +8,7 @@ from bpy.props import (
     FloatProperty,
     CollectionProperty
 )
+from bpy.types import (Panel)
 
 from .. import xml_i3d
 
@@ -117,9 +118,9 @@ def parameter_element_as_dict(parameter):
             # For some reason, Giants shaders has to specify their default values in terms of float4... Where the extra
             # parts compared with what the actual type length is, aren't in any way relevant.
             if len(default_parsed) > type_length:
-                default_parsed = default_parsed[:type_length-1]
+                default_parsed = default_parsed[:type_length - 1]
 
-        default_parsed += ['0']*(type_length-len(default_parsed))
+        default_parsed += ['0'] * (type_length - len(default_parsed))
         return default_parsed
 
     if 'arraySize' in parameter.attrib:
@@ -269,6 +270,7 @@ class I3DMaterialShader(bpy.types.PropertyGroup):
                             set=variation_setter
                             )
 
+    alpha_blending: BoolProperty(name='Alpha Blending', default=False, description='Enable alpha blending for this material')
     variations: CollectionProperty(type=I3DShaderVariation)
     shader_parameters: CollectionProperty(type=I3DShaderParameter)
     shader_textures: CollectionProperty(type=I3DShaderTexture)
@@ -290,6 +292,8 @@ class I3D_IO_PT_shader(Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
         material = bpy.context.active_object.active_material
+
+        layout.prop(material.i3d_attributes, 'alpha_blending')
 
         layout.prop(material.i3d_attributes, 'source')
         if material.i3d_attributes.variations:
@@ -367,4 +371,3 @@ def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     del bpy.types.Material.i3d_attributes
-

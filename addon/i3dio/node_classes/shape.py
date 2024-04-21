@@ -13,6 +13,11 @@ from ..i3d import I3D
 enable_debugging = False
 
 
+def print(*args):
+    msg = ''.join(map(str, args))
+    logging.log(logging.WARNING, msg)
+
+
 class SubSet:
     def __init__(self):
         self.first_index = 0
@@ -101,7 +106,7 @@ class EvaluatedMesh:
         self.mesh = None
         if enable_debugging:
             self.logger = debugging.ObjectNameAdapter(logging.getLogger(f"{__name__}.{type(self).__name__}"),
-                                                  {'object_name': self.name})
+                                                      {'object_name': self.name})
         self.generate_evaluated_mesh(mesh_object, reference_frame)
 
     def generate_evaluated_mesh(self, mesh_object: bpy.types.Object, reference_frame: mathutils.Matrix = None):
@@ -212,10 +217,11 @@ class IndexedTriangleSet(Node):
 
                 # Add vertex color
                 vertex_color = None
-                if len(mesh.vertex_colors):
-                    # Get the color from the active layer or first layer, since only one vertex color layer is supported in GE
-                    color_layer = mesh.vertex_colors.active if mesh.vertex_colors.active is not None else mesh.vertex_colors[0]
-                    vertex_color = color_layer.data[loop_index].color
+                if mesh.i3d_attributes.use_vertex_color:
+                    if len(mesh.vertex_colors):
+                        # Get the color from the active layer or first layer, since only one vertex color layer is supported in GE
+                        color_layer = mesh.vertex_colors.active if mesh.vertex_colors.active is not None else mesh.vertex_colors[0]
+                        vertex_color = color_layer.data[loop_index].color
 
                 # Add uvs
                 uvs = []
@@ -243,14 +249,14 @@ class IndexedTriangleSet(Node):
                             else:
                                 if enable_debugging:
                                     self.logger.warning(f"Vertex has weights from more than 4 bones! Rest of bones will be"
-                                                    f"ignored for export!")
+                                                        f"ignored for export!")
                                 break
 
                     if len(blend_ids) == 0:
                         if enable_debugging:
                             self.logger.warning("Has a vertex with 0.0 weight to all bones. "
-                                            "This will confuse GE and results in the mesh showing up as just a "
-                                            "wireframe. Please correct by assigning some weight to all vertices")
+                                                "This will confuse GE and results in the mesh showing up as just a "
+                                                "wireframe. Please correct by assigning some weight to all vertices")
 
                     if len(blend_ids) < 4:
                         padding = [0] * (4 - len(blend_ids))
@@ -318,18 +324,18 @@ class IndexedTriangleSet(Node):
         if len(mesh.materials) == 0:
             if enable_debugging:
                 self.logger.warning(f"Mesh '{mesh.name}' to be added has no materials, "
-                                f"mergegroups need to share the same subset!")
+                                    f"mergegroups need to share the same subset!")
             return
         elif len(mesh.materials) > 1:
             if enable_debugging:
                 self.logger.warning(f"Mesh '{mesh.name}' has more than one material, "
-                                f"merge groups need to share the same subset!")
+                                    f"merge groups need to share the same subset!")
             return
         else:
             if mesh.materials[0].name != self.evaluated_mesh.mesh.materials[0].name:
                 if enable_debugging:
                     self.logger.warning(f"Mesh '{mesh.name}' has a different material from merge group root, "
-                                    f"which is not allowed!")
+                                        f"which is not allowed!")
                 return
 
         triangle_offset = len(self.subsets[-1].triangles)
@@ -400,8 +406,8 @@ class IndexedTriangleSet(Node):
         self.populate_from_evaluated_mesh()
         if enable_debugging:
             self.logger.debug(f"Has '{len(self.subsets)}' subsets, "
-                          f"'{len(self.triangles)}' triangles and "
-                          f"'{len(self.vertices)}' vertices")
+                              f"'{len(self.triangles)}' triangles and "
+                              f"'{len(self.vertices)}' vertices")
 
         self.write_vertices()
         self.write_triangles()
@@ -467,7 +473,7 @@ class EvaluatedNurbsCurve:
         self.curve_data = None
         if enable_debugging:
             self.logger = debugging.ObjectNameAdapter(logging.getLogger(f"{__name__}.{type(self).__name__}"),
-                                                  {'object_name': self.name})
+                                                      {'object_name': self.name})
         self.control_vertices = []
         self.generate_evaluated_curve(shape_object, reference_frame)
 
