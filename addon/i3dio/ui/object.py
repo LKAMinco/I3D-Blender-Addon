@@ -1,10 +1,5 @@
 import bpy
-from bpy.types import (
-    Panel
-)
-
-from bpy.app.handlers import (persistent, save_pre, load_post)
-
+from bpy.app.handlers import (persistent, load_post)
 from bpy.props import (
     StringProperty,
     BoolProperty,
@@ -14,6 +9,9 @@ from bpy.props import (
     IntProperty,
     FloatVectorProperty,
     CollectionProperty,
+)
+from bpy.types import (
+    Panel
 )
 
 from .helper_functions import i3d_property
@@ -336,14 +334,14 @@ class I3DNodeObjectAttributes(bpy.types.PropertyGroup):
     render_invisible: BoolProperty(
         name="Render Invisible",
         description='If set, the object is always rendered and "visibility"'
-        'must be controlled in the shader using the visible shader parameter',
+                    'must be controlled in the shader using the visible shader parameter',
         default=i3d_map['render_invisible']['default']
     )
 
     visible_shader_parameter: FloatProperty(
         name="Visible Shader Parameter",
         description='This value is applied to the "visibility" shader parameter when the object is visible.'
-        'If conditions are not met, 0 is passed to the shader.',
+                    'If conditions are not met, 0 is passed to the shader.',
         default=i3d_map['visible_shader_parameter']['default'],
         min=-100,
         max=100
@@ -457,6 +455,7 @@ class I3D_IO_PT_object_attributes(Panel):
         i3d_property(layout, obj.i3d_attributes, 'clip_distance', obj)
         i3d_property(layout, obj.i3d_attributes, 'min_clip_distance', obj)
         i3d_property(layout, obj.i3d_attributes, 'lod_distance', obj)
+
 
 @register
 class I3D_IO_PT_rigid_body_attributes(Panel):
@@ -591,8 +590,9 @@ class I3DMergeGroup(bpy.types.PropertyGroup):
         name="Merge Group Root Object",
         description="The object acting as the root for the merge group",
         type=bpy.types.Object,
-		)
-  
+    )
+
+
 @register
 class I3D_IO_PT_merge_group_attributes(Panel):
     bl_space_type = 'PROPERTIES'
@@ -617,7 +617,7 @@ class I3D_IO_PT_merge_group_attributes(Panel):
         row.operator('i3dio.choose_merge_group', text="", icon='DOWNARROW_HLT')
 
         col = row.column(align=True)
-        merge_group_index = obj.i3d_merge_group_index 
+        merge_group_index = obj.i3d_merge_group_index
         if merge_group_index == -1:
             col.operator("i3dio.new_merge_group", text="New", icon="ADD")
         else:
@@ -642,7 +642,7 @@ class I3D_IO_OT_choose_merge_group(bpy.types.Operator):
     bl_property = "enum"
 
     def get_enum_options(self, context):
-        merge_groups_item_list = sorted([(str(idx), mg.name, "") for idx,mg in enumerate(context.scene.i3dio_merge_groups)],key=lambda x: x[1])
+        merge_groups_item_list = sorted([(str(idx), mg.name, "") for idx, mg in enumerate(context.scene.i3dio_merge_groups)], key=lambda x: x[1])
         return merge_groups_item_list
 
     enum: EnumProperty(items=get_enum_options, name="Items")
@@ -659,10 +659,11 @@ class I3D_IO_OT_choose_merge_group(bpy.types.Operator):
         else:
             print("same mg")
         return {"FINISHED"}
-    
+
     def invoke(self, context, event):
         context.window_manager.invoke_search_popup(self)
         return {"RUNNING_MODAL"}
+
 
 @register
 class I3D_IO_OT_new_merge_group(bpy.types.Operator):
@@ -681,7 +682,7 @@ class I3D_IO_OT_new_merge_group(bpy.types.Operator):
             name = f"{MERGE_GROUP_DEFAULT_NAME}.{count:03d}"
             count += 1
         mg = context.scene.i3dio_merge_groups.add()
-        
+
         mg.name = name
         mg.root = obj
         old_mg_index = obj.i3d_merge_group_index
@@ -689,7 +690,8 @@ class I3D_IO_OT_new_merge_group(bpy.types.Operator):
         if old_mg_index != -1:
             remove_merge_group_if_empty(context, old_mg_index)
         return {'FINISHED'}
-    
+
+
 def remove_merge_group_if_empty(context, mg_index):
     mg_member_count = 0
     objects_in_higher_indexed_merge_groups = []
@@ -705,7 +707,8 @@ def remove_merge_group_if_empty(context, mg_index):
             obj.i3d_merge_group_index -= 1
     else:
         print(f"{mg_member_count} members left in '{context.scene.i3dio_merge_groups[mg_index]}'")
-        
+
+
 @register
 class I3D_IO_OT_remove_from_merge_group(bpy.types.Operator):
     bl_idname = "i3dio.remove_from_merge_group"
@@ -718,6 +721,7 @@ class I3D_IO_OT_remove_from_merge_group(bpy.types.Operator):
         context.object.i3d_merge_group_index = -1
         remove_merge_group_if_empty(context, old_mg_index)
         return {'FINISHED'}
+
 
 @register
 class I3D_IO_OT_select_merge_group_root(bpy.types.Operator):
@@ -733,6 +737,7 @@ class I3D_IO_OT_select_merge_group_root(bpy.types.Operator):
     def execute(self, context):
         context.scene.i3dio_merge_groups[context.object.i3d_merge_group_index].root = context.object
         return {'FINISHED'}
+
 
 @register
 class I3D_IO_OT_select_mg_objects(bpy.types.Operator):
@@ -752,6 +757,7 @@ class I3D_IO_OT_select_mg_objects(bpy.types.Operator):
                 obj.select_set(True)
         return {'FINISHED'}
 
+
 @persistent
 def handle_old_merge_groups(dummy):
     for scene in bpy.data.scenes:
@@ -770,6 +776,7 @@ def handle_old_merge_groups(dummy):
                     if is_root != None and is_root == 1:
                         mg.root = obj
                 del obj['i3d_merge_group']
+
 
 @register
 class I3D_IO_PT_joint_attributes(Panel):
@@ -816,6 +823,20 @@ class I3D_IO_PT_joint_attributes(Panel):
 
 
 @register
+class I3DReferenceData(bpy.types.PropertyGroup):
+    path: StringProperty(
+        name="Reference Path",
+        description="Put the path to the .i3d file you want to reference here",
+        default='',
+        subtype='FILE_PATH')
+
+    runtime_loaded: BoolProperty(
+        name="Runtime Loaded",
+        default=False
+    )
+
+
+@register
 class I3D_IO_PT_reference_file(Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -831,7 +852,8 @@ class I3D_IO_PT_reference_file(Panel):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        layout.prop(context.object, 'i3d_reference_path')
+        layout.prop(context.object.i3d_reference, 'path')
+        layout.prop(context.object.i3d_reference, 'runtime_loaded')
 
 
 @register
@@ -847,6 +869,7 @@ class I3DMappingData(bpy.types.PropertyGroup):
         description="If this is left empty the name of the object itself will be used",
         default=''
     )
+
 
 @register
 class I3D_IO_PT_mapping_attributes(Panel):
@@ -870,6 +893,7 @@ class I3D_IO_PT_mapping_attributes(Panel):
         row.prop(obj.i3d_mapping, 'is_mapped')
         row = layout.row()
         row.prop(obj.i3d_mapping, 'mapping_name')
+
 
 @register
 class I3D_IO_PT_mapping_bone(Panel):
@@ -898,21 +922,18 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.Object.i3d_attributes = PointerProperty(type=I3DNodeObjectAttributes)
-    bpy.types.Object.i3d_merge_group_index = IntProperty(default = -1)
+    bpy.types.Object.i3d_merge_group_index = IntProperty(default=-1)
     bpy.types.Object.i3d_mapping = PointerProperty(type=I3DMappingData)
     bpy.types.Bone.i3d_mapping = PointerProperty(type=I3DMappingData)
-    bpy.types.Object.i3d_reference_path = StringProperty(
-        name="Reference Path",
-        description="Put the path to the .i3d file you want to reference here",
-        default='',
-        subtype='FILE_PATH')
+    bpy.types.Object.i3d_reference = PointerProperty(type=I3DReferenceData)
     bpy.types.Scene.i3dio_merge_groups = CollectionProperty(type=I3DMergeGroup)
     load_post.append(handle_old_merge_groups)
+
 
 def unregister():
     load_post.remove(handle_old_merge_groups)
     del bpy.types.Scene.i3dio_merge_groups
-    del bpy.types.Object.i3d_reference_path
+    del bpy.types.Object.i3d_reference
     del bpy.types.Object.i3d_mapping
     del bpy.types.Bone.i3d_mapping
     del bpy.types.Object.i3d_merge_group_index

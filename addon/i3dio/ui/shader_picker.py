@@ -1,3 +1,5 @@
+import logging
+
 import bpy
 from bpy.props import (
     BoolProperty,
@@ -23,6 +25,11 @@ shader_parameter_max_decimals = 3  # 0-6 per blender properties documentation
 def register(cls):
     classes.append(cls)
     return cls
+
+
+def print(*args):
+    msg = ' '.join(map(str, args))
+    logging.log(logging.WARNING, msg)
 
 
 @register
@@ -100,7 +107,7 @@ class I3DLoadCustomShader(bpy.types.Operator):
 def parameter_element_as_dict(parameter):
     parameter_list = []
 
-    if parameter.attrib['type'] == 'float':
+    if parameter.attrib['type'] == 'float' or parameter.attrib['type'] == 'float1':
         type_length = 1
     elif parameter.attrib['type'] == 'float2':
         type_length = 2
@@ -117,6 +124,7 @@ def parameter_element_as_dict(parameter):
             default_parsed = default.split()
             # For some reason, Giants shaders has to specify their default values in terms of float4... Where the extra
             # parts compared with what the actual type length is, aren't in any way relevant.
+
             if len(default_parsed) > type_length:
                 default_parsed = default_parsed[:type_length - 1]
 

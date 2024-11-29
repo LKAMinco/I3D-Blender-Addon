@@ -10,6 +10,7 @@ if "bpy" in locals():
         'shader_picker',
         'user_attributes',
         'udim_picker'
+        'shader_visualizer'
     ]
 
     for module_name in reloadable_modules:
@@ -17,4 +18,4 @@ if "bpy" in locals():
             importlib.reload(locals()[module_name])
 
 from . import (helper_functions, addon_preferences, exporter, object, user_attributes, mesh, light, shader_picker,
-               udim_picker)
+               udim_picker, shader_visualizer)

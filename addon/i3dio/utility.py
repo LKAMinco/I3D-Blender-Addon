@@ -91,7 +91,6 @@ def as_fs_relative_path(filepath: str):
     except ValueError:
         return filepath_clean
 
-
 def sort_blender_objects_by_name(objects: List[BlenderObject]) -> List[BlenderObject]:
     return sorted(objects, key=lambda x: x.name)
 

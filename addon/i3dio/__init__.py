@@ -16,13 +16,14 @@
 # This fixes reloading, by deleting the module references and thus forcing a reload
 if "bpy" in locals():
     import sys
+
     for module in list(sys.modules):
         if __name__ in module:
             del sys.modules[module]
 
-from . import ui, xml_i3d
-
 import bpy
+
+from . import ui, xml_i3d
 
 __version__ = "0.0.0"  # This version number is used internally, since the bl_info one can't handle dev versions...
 
@@ -76,7 +77,9 @@ def register():
     ui.user_attributes.register()
     ui.mesh.register()
     ui.light.register()
+    ui.shader_visualizer.register()
     bpy.types.TOPBAR_MT_file_export.append(ui.exporter.menu_func_export)
+
 
 def unregister():
     bpy.types.TOPBAR_MT_file_export.remove(ui.exporter.menu_func_export)
@@ -89,4 +92,4 @@ def unregister():
     ui.udim_picker.unregister()
     ui.addon_preferences.unregister()
     ui.helper_functions.unregister()
-
+    ui.shader_visualizer.unregister()
